@@ -4,7 +4,21 @@
 
 This project is a small Java console application for placing coffee orders. Different coffee products (Espresso, Latte, Cappuccino) can be added to an order, a payment method such as card or cash can be used, and a receipt is printed in the console.
 
-The project demonstrates three SOLID design principles. In accordance with the Single Responsibility Principle (SRP), each class has a clearly defined responsibility: Order calculates the order total, InMemoryOrderRepository stores orders, ConsoleReceipt prints receipts, and OrderService coordinates the ordering process. The Open/Closed Principle (OCP) is demonstrated by allowing new coffee types and payment methods to be added through new classes without modifying the existing order-processing logic. Finally, according to the Dependency Inversion Principle (DIP), OrderService depends on abstractions such as Payment, Receipt, and OrderRepository rather than on concrete implementations, making the components easier to replace, test, and extend
+The project demonstrates three SOLID design principles. In accordance with the Single Responsibility Principle (SRP), each class has a clearly defined responsibility: `Order` calculates the order total, `InMemoryOrderRepository` stores orders, `ConsoleReceipt` prints receipts, and `OrderService` coordinates the ordering process. The Open/Closed Principle (OCP) is demonstrated by allowing new coffee types and payment methods to be added through new classes without modifying the existing order-processing logic. Finally, according to the Dependency Inversion Principle (DIP), `OrderService` depends on abstractions such as `Payment`, `Receipt`, and `OrderRepository` rather than on concrete implementations, making the components easier to replace, test, and extend.
+
+## SOLID UML Diagram
+
+The [solid-principles.puml](solid-principles.puml) diagram documents every SOLID principle currently used in the project:
+
+- **SRP** - `Order`, `InMemoryOrderRepository`, `ConsoleReceipt`, and `OrderService` each have a focused responsibility.
+- **OCP** - `Coffee` and `Payment` can be extended with new implementations without changing the order workflow.
+- **DIP** - `OrderService` depends on the `Payment`, `OrderRepository`, and `Receipt` interfaces instead of concrete classes.
+
+Open the `.puml` file with a PlantUML extension or render it with PlantUML:
+
+```text
+plantuml solid-principles.puml
+```
 
 ## Features
 

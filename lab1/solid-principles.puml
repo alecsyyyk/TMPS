@@ -1,0 +1,143 @@
+@startuml
+title Coffee Order Application - SOLID Principles
+
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam noteBackgroundColor #FFF8DC
+skinparam noteBorderColor #8B7355
+
+package "Domain" {
+    interface Coffee {
+        +getName(): String
+        +getPrice(): double
+    }
+
+    class Espresso
+    class Latte
+    class Cappuccino
+
+    class Order {
+        -items: List<Coffee>
+        +addItem(coffee: Coffee): void
+        +getItems(): List<Coffee>
+        +getTotal(): double
+    }
+}
+
+package "Payment" {
+    interface Payment {
+        +pay(amount: double): void
+    }
+
+    class CardPayment
+    class CashPayment
+}
+
+package "Persistence" {
+    interface OrderRepository {
+        +save(order: Order): void
+    }
+
+    class InMemoryOrderRepository {
+        -orders: List<Order>
+        +save(order: Order): void
+    }
+}
+
+package "Presentation" {
+    interface Receipt {
+        +print(order: Order): void
+    }
+
+    class ConsoleReceipt {
+        +print(order: Order): void
+    }
+}
+
+class OrderService {
+    -payment: Payment
+    -repository: OrderRepository
+    -receipt: Receipt
+    +OrderService(payment: Payment, repository: OrderRepository, receipt: Receipt)
+    +placeOrder(order: Order): void
+}
+
+class Main {
+    +main(args: String[]): void
+}
+
+Coffee <|.. Espresso
+Coffee <|.. Latte
+Coffee <|.. Cappuccino
+Order "1" *-- "0..*" Coffee : contains
+
+Payment <|.. CardPayment
+Payment <|.. CashPayment
+
+OrderRepository <|.. InMemoryOrderRepository
+OrderRepository ..> Order : stores
+
+Receipt <|.. ConsoleReceipt
+Receipt ..> Order : prints
+
+OrderService ..> Payment : pays through
+OrderService ..> OrderRepository : saves through
+OrderService ..> Receipt : prints through
+OrderService ..> Order : processes
+
+Main ..> Order : creates
+Main ..> Coffee : selects
+Main ..> Payment : selects
+Main ..> OrderRepository : configures
+Main ..> Receipt : configures
+Main ..> OrderService : creates
+
+note right of Order
+  SRP: owns order items and
+  calculates the order total.
+end note
+
+note right of InMemoryOrderRepository
+  SRP: only stores orders
+  in memory.
+end note
+
+note right of ConsoleReceipt
+  SRP: only formats and
+  prints receipts.
+end note
+
+note right of OrderService
+  SRP: coordinates payment,
+  persistence, and receipt output.
+
+  DIP: depends on Payment,
+  OrderRepository, and Receipt
+  abstractions.
+end note
+
+note bottom of Coffee
+  OCP: add a new coffee by
+  implementing Coffee without
+  changing OrderService.
+end note
+
+note bottom of Payment
+  OCP: add a new payment method
+  by implementing Payment without
+  changing OrderService.
+end note
+
+note bottom of OrderRepository
+  DIP: persistence is represented
+  by an abstraction, so storage
+  implementations can be replaced.
+end note
+
+note bottom of Receipt
+  DIP: output is represented by
+  an abstraction, so receipt
+  implementations can be replaced.
+end note
+
+@enduml
