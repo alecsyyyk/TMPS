@@ -2,31 +2,232 @@
 
 ## Description
 
-This project is a small Java console application for placing coffee orders. Different coffee products (Espresso, Latte, Cappuccino) can be added to an order, a payment method such as card or cash can be used, and a receipt is printed in the console.
+This project is a small Java console application for placing coffee orders.
+Users can add Espresso, Latte, or Cappuccino products, choose card or cash
+payment, save the order in memory, and print a receipt in the console.
 
-The project demonstrates three SOLID design principles. In accordance with the Single Responsibility Principle (SRP), each class has a clearly defined responsibility: `Order` calculates the order total, `InMemoryOrderRepository` stores orders, `ConsoleReceipt` prints receipts, and `OrderService` coordinates the ordering process. The Open/Closed Principle (OCP) is demonstrated by allowing new coffee types and payment methods to be added through new classes without modifying the existing order-processing logic. Finally, according to the Dependency Inversion Principle (DIP), `OrderService` depends on abstractions such as `Payment`, `Receipt`, and `OrderRepository` rather than on concrete implementations, making the components easier to replace, test, and extend.
+The project demonstrates three SOLID principles:
 
-## SOLID UML Diagram
+- **Single Responsibility Principle (SRP)** - each class has one focused
+  responsibility.
+- **Open/Closed Principle (OCP)** - new coffee and payment implementations can
+  be added without modifying the existing order workflow.
+- **Dependency Inversion Principle (DIP)** - `OrderService` depends on
+  interfaces instead of concrete implementations.
 
-The [solid-principles.puml](solid-principles.puml) diagram documents every SOLID principle currently used in the project:
+## SOLID Principles
 
-- **SRP** - `Order`, `InMemoryOrderRepository`, `ConsoleReceipt`, and `OrderService` each have a focused responsibility.
-- **OCP** - `Coffee` and `Payment` can be extended with new implementations without changing the order workflow.
-- **DIP** - `OrderService` depends on the `Payment`, `OrderRepository`, and `Receipt` interfaces instead of concrete classes.
+### 1. Single Responsibility Principle (SRP)
 
-Open the `.puml` file with a PlantUML extension or render it with PlantUML:
+`Order` manages coffee items and calculates the order total. Saving orders,
+printing receipts, and coordinating the workflow are handled by separate
+classes.
 
-```text
-plantuml solid-principles.puml
+```java
+public class Order {
+    private final List<Coffee> items = new ArrayList<>();
+
+    public void addItem(Coffee coffee) {
+        items.add(coffee);
+    }
+
+    public double getTotal() {
+        double total = 0;
+        for (Coffee coffee : items) {
+            total += coffee.getPrice();
+        }
+        return total;
+    }
+}
+```
+
+![SRP class diagram](2.png)
+
+The diagram shows the separate responsibilities of `Order`,
+`InMemoryOrderRepository`, `ConsoleReceipt`, and `OrderService`.
+
+#### SRP PlantUML
+
+```plantuml
+@startuml
+title Single Responsibility Principle
+
+class Order {
+    -items: List<Coffee>
+    +addItem(coffee: Coffee): void
+    +getTotal(): double
+}
+
+class InMemoryOrderRepository {
+    -orders: List<Order>
+    +save(order: Order): void
+}
+
+class ConsoleReceipt {
+    +print(order: Order): void
+}
+
+class OrderService {
+    +placeOrder(order: Order): void
+}
+
+Order ..> Coffee : calculates total from
+InMemoryOrderRepository ..> Order : stores
+ConsoleReceipt ..> Order : prints
+OrderService ..> Order : coordinates
+@enduml
+```
+
+### 2. Open/Closed Principle (OCP)
+
+The `Coffee` interface allows new coffee products to be added without
+changing `Order` or `OrderService`.
+
+```java
+public interface Coffee {
+    String getName();
+    double getPrice();
+}
+
+public class Latte implements Coffee {
+    @Override
+    public String getName() {
+        return "Latte";
+    }
+
+    @Override
+    public double getPrice() {
+        return 40.0;
+    }
+}
+```
+
+![OCP class diagram](3.png)
+
+The diagram shows that `Espresso`, `Latte`, `Cappuccino`, and future coffee
+types implement `Coffee`. Existing order-processing classes remain unchanged.
+
+#### OCP PlantUML
+
+```plantuml
+@startuml
+title Open/Closed Principle
+
+interface Coffee {
+    +getName(): String
+    +getPrice(): double
+}
+
+class Espresso
+class Latte
+class Cappuccino
+class NewCoffee
+
+Coffee <|.. Espresso
+Coffee <|.. Latte
+Coffee <|.. Cappuccino
+Coffee <|.. NewCoffee : future extension
+
+class Order {
+    +addItem(coffee: Coffee): void
+    +getTotal(): double
+}
+
+Order "1" o-- "0..*" Coffee : accepts
+
+note right of NewCoffee
+  Add a new class that
+  implements Coffee.
+  Existing classes remain
+  unchanged.
+end note
+@enduml
+```
+
+### 3. Dependency Inversion Principle (DIP)
+
+`OrderService` receives abstractions through its constructor instead of
+creating concrete payment, repository, or receipt objects.
+
+```java
+public class OrderService {
+    private final Payment payment;
+    private final OrderRepository repository;
+    private final Receipt receipt;
+
+    public OrderService(
+            Payment payment,
+            OrderRepository repository,
+            Receipt receipt) {
+        this.payment = payment;
+        this.repository = repository;
+        this.receipt = receipt;
+    }
+
+    public void placeOrder(Order order) {
+        payment.pay(order.getTotal());
+        repository.save(order);
+        receipt.print(order);
+    }
+}
+```
+
+![DIP class diagram](4.png)
+
+The diagram shows that `OrderService` uses the `Payment`,
+`OrderRepository`, and `Receipt` interfaces. Their concrete implementations
+can be replaced independently.
+
+#### DIP PlantUML
+
+```plantuml
+@startuml
+title Dependency Inversion Principle
+
+interface Payment {
+    +pay(amount: double): void
+}
+
+interface OrderRepository {
+    +save(order: Order): void
+}
+
+interface Receipt {
+    +print(order: Order): void
+}
+
+class CardPayment
+class CashPayment
+class InMemoryOrderRepository
+class ConsoleReceipt
+class Order
+
+class OrderService {
+    -payment: Payment
+    -repository: OrderRepository
+    -receipt: Receipt
+    +OrderService(payment: Payment, repository: OrderRepository, receipt: Receipt)
+    +placeOrder(order: Order): void
+}
+
+Payment <|.. CardPayment
+Payment <|.. CashPayment
+OrderRepository <|.. InMemoryOrderRepository
+Receipt <|.. ConsoleReceipt
+
+OrderService ..> Payment : depends on
+OrderService ..> OrderRepository : depends on
+OrderService ..> Receipt : depends on
+OrderService ..> Order : processes
+@enduml
 ```
 
 ## Database Diagram
 
-The database diagram illustrates how orders, coffee products, order items,
-payments, receipts, and repository storage are related. An order can contain
-multiple coffee products through `order_items`, while each order has an
-associated payment and receipt. The structure reflects the main responsibilities
-and abstractions used by the application.
+The database diagram illustrates the relationships between orders, coffee
+products, order items, payments, receipts, and repository storage. An order
+can contain multiple coffee products through `order_items`, and each order
+has an associated payment and receipt.
 
 ![Database diagram](1.png)
 
@@ -40,14 +241,22 @@ and abstractions used by the application.
 - Print a receipt in the console.
 - Show messages for invalid menu options.
 
-
 ## Project Structure
 
 - `Main.java` - starts the application and reads user input.
-- `Coffee.java` - defines the coffee interface and coffee types.
+- `Coffee.java` - defines the coffee interface.
+- `Espresso.java` - implements the Espresso product.
+- `Latte.java` - implements the Latte product.
+- `Cappuccino.java` - implements the Cappuccino product.
 - `Order.java` - stores products and calculates the order total.
-- `Payment.java` - defines card and cash payment methods.
-- `Receipt.java` - defines the console receipt.
+- `Payment.java` - defines the payment interface.
+- `CardPayment.java` - implements card payments.
+- `CashPayment.java` - implements cash payments.
+- `OrderRepository.java` - defines the order storage interface.
+- `InMemoryOrderRepository.java` - stores orders in memory.
+- `Receipt.java` - defines the receipt interface.
+- `ConsoleReceipt.java` - prints receipts to the console.
+- `OrderService.java` - coordinates payment, storage, and receipt printing.
 - `pom.xml` - Maven project configuration.
 
 ## How to Use
