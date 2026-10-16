@@ -2,17 +2,9 @@
 
 ## Description
 
-This project is a small Java console application for placing coffee orders.
-The user can choose different coffee products, select a payment method, and
-receive a receipt in the console.
+This project is a small Java console application for placing coffee orders. Different coffee products (Espresso, Latte, Cappuccino) can be added to an order, a payment method such as card or cash can be used, and a receipt is printed in the console.
 
-The project also shows some SOLID design principles:
-
-- **Single Responsibility Principle (SRP)**: each class has one main job.
-- **Open/Closed Principle (OCP)**: new coffee types and payment methods can be
-  added without changing the main order logic.
-- **Dependency Inversion Principle (DIP)**: the order service uses interfaces
-  such as `Payment`, `Receipt`, and `OrderRepository`.
+The project demonstrates three SOLID design principles. In accordance with the Single Responsibility Principle (SRP), each class has a clearly defined responsibility: Order calculates the order total, InMemoryOrderRepository stores orders, ConsoleReceipt prints receipts, and OrderService coordinates the ordering process. The Open/Closed Principle (OCP) is demonstrated by allowing new coffee types and payment methods to be added through new classes without modifying the existing order-processing logic. Finally, according to the Dependency Inversion Principle (DIP), OrderService depends on abstractions such as Payment, Receipt, and OrderRepository rather than on concrete implementations, making the components easier to replace, test, and extend
 
 ## Features
 
