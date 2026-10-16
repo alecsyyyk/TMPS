@@ -20,6 +20,16 @@ Open the `.puml` file with a PlantUML extension or render it with PlantUML:
 plantuml solid-principles.puml
 ```
 
+## Database Diagram
+
+The database diagram illustrates how orders, coffee products, order items,
+payments, receipts, and repository storage are related. An order can contain
+multiple coffee products through `order_items`, while each order has an
+associated payment and receipt. The structure reflects the main responsibilities
+and abstractions used by the application.
+
+![Database diagram](1.png)
+
 ## Features
 
 - Add Espresso, Latte, or Cappuccino to an order.
