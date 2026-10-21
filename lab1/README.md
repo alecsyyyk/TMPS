@@ -46,37 +46,6 @@ public class Order {
 The diagram shows the separate responsibilities of `Order`,
 `InMemoryOrderRepository`, `ConsoleReceipt`, and `OrderService`.
 
-#### SRP PlantUML
-
-```plantuml
-@startuml
-title Single Responsibility Principle
-
-class Order {
-    -items: List<Coffee>
-    +addItem(coffee: Coffee): void
-    +getTotal(): double
-}
-
-class InMemoryOrderRepository {
-    -orders: List<Order>
-    +save(order: Order): void
-}
-
-class ConsoleReceipt {
-    +print(order: Order): void
-}
-
-class OrderService {
-    +placeOrder(order: Order): void
-}
-
-Order ..> Coffee : calculates total from
-InMemoryOrderRepository ..> Order : stores
-ConsoleReceipt ..> Order : prints
-OrderService ..> Order : coordinates
-@enduml
-```
 
 ### 2. Open/Closed Principle (OCP)
 
@@ -107,42 +76,8 @@ public class Latte implements Coffee {
 The diagram shows that `Espresso`, `Latte`, `Cappuccino`, and future coffee
 types implement `Coffee`. Existing order-processing classes remain unchanged.
 
-#### OCP PlantUML
 
-```plantuml
-@startuml
-title Open/Closed Principle
 
-interface Coffee {
-    +getName(): String
-    +getPrice(): double
-}
-
-class Espresso
-class Latte
-class Cappuccino
-class NewCoffee
-
-Coffee <|.. Espresso
-Coffee <|.. Latte
-Coffee <|.. Cappuccino
-Coffee <|.. NewCoffee : future extension
-
-class Order {
-    +addItem(coffee: Coffee): void
-    +getTotal(): double
-}
-
-Order "1" o-- "0..*" Coffee : accepts
-
-note right of NewCoffee
-  Add a new class that
-  implements Coffee.
-  Existing classes remain
-  unchanged.
-end note
-@enduml
-```
 
 ### 3. Dependency Inversion Principle (DIP)
 
@@ -179,55 +114,6 @@ The diagram shows that `OrderService` uses the `Payment`,
 can be replaced independently.
 
 #### DIP PlantUML
-
-```plantuml
-@startuml
-title Dependency Inversion Principle
-
-interface Payment {
-    +pay(amount: double): void
-}
-
-interface OrderRepository {
-    +save(order: Order): void
-}
-
-interface Receipt {
-    +print(order: Order): void
-}
-
-class CardPayment
-class CashPayment
-class InMemoryOrderRepository
-class ConsoleReceipt
-class Order
-
-class OrderService {
-    -payment: Payment
-    -repository: OrderRepository
-    -receipt: Receipt
-    +OrderService(payment: Payment, repository: OrderRepository, receipt: Receipt)
-    +placeOrder(order: Order): void
-}
-
-Payment <|.. CardPayment
-Payment <|.. CashPayment
-OrderRepository <|.. InMemoryOrderRepository
-Receipt <|.. ConsoleReceipt
-
-OrderService ..> Payment : depends on
-OrderService ..> OrderRepository : depends on
-OrderService ..> Receipt : depends on
-OrderService ..> Order : processes
-@enduml
-```
-
-## Database Diagram
-
-The database diagram illustrates the relationships between orders, coffee
-products, order items, payments, receipts, and repository storage. An order
-can contain multiple coffee products through `order_items`, and each order
-has an associated payment and receipt.
 
 ![Database diagram](1.png)
 
