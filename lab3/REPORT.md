@@ -461,26 +461,48 @@ patterns, `OrderService`, `Order` and `ConsoleReceipt` stay unchanged.
 
 ## 4. Conclusions
 
-**What was harder than expected:**
+This laboratory work extended the coffee shop application from Lab 2 with
+three structural design patterns: Decorator, Composite and Proxy. Each of them
+was introduced to solve a concrete limitation of the previous version, and
+all of them work together with the creational patterns from Lab 2 (Factory
+Method, Builder and Singleton) on a single execution path, from choosing a
+product to printing the receipt.
 
-- Fitting the Lab 2 Builder together with the Decorator. The old
-  `CustomCoffee` held every option as a field. Turning `build()` into
-  "wrap the base in a chain of decorators" kept the Builder's API but removed
-  the class that had to change for every new add-on. The generic `with(...)`
-  step was needed so the builder itself stays closed for modification.
-- Printing nested bundles without `instanceof`. A purely "safe" Composite
-  (child methods only on the composite) forces the receipt to check types.
-  The compromise was a read-only `getChildren()` on `Product` with an empty
-  default, while `add()` stays only on `ProductBundle`.
-- Choosing what the proxy controls. Logging alone would be a decorator in
-  disguise; the limit check and lazy creation give the proxy a real
-  access-control job.
+The Decorator pattern replaced the old `CustomCoffee` class, which held every
+add-on as a field and had to be edited whenever a new option appeared. Now
+each add-on is a small class that wraps any `Coffee`, so add-ons can be
+combined in any order and even repeated, such as a double shot. The hardest
+part was fitting the Lab 2 Builder together with the decorators. Turning
+`build()` into "wrap the base coffee in a chain of decorators" kept the
+Builder's API, and the generic `with(...)` step allows new decorators to be
+used without modifying the builder itself.
 
-**What I would design differently:**
+The Composite pattern made it possible to sell bundles, including a bundle
+inside another bundle, and to treat them exactly like single products. The
+price is computed recursively, so `Order` and `OrderService` did not need to
+know about nesting. The main design decision was how to print nested bundles
+without `instanceof`. A purely "safe" Composite would have forced the receipt
+to check types, so the compromise was a read-only `getChildren()` method on
+`Product` with an empty default, while `add()` stays only on `ProductBundle`.
 
-- Use `BigDecimal` for money. `double` works for these prices but can produce
-  rounding errors with other discounts.
-- Load the menu (products, prices, bundle contents) from configuration
-  instead of the `Menu` class, so that a new bundle needs no code at all.
-- Let a declined payment return a result object instead of throwing, so the
-  console flow does not rely on exceptions for a normal business case.
+The Proxy pattern gave the application a place to control payments. The
+`PaymentProxy` blocks amounts above the limit of each payment method and
+creates the real payment only when a payment is actually authorized. Choosing
+what the proxy should control was important: simple logging would have made
+it a decorator in disguise, while the limit check and lazy creation give it a
+real access-control responsibility. Because the Factory Method returns the
+proxy, no client ever works with the real payment directly.
+
+Looking back, a few things could be designed differently. Money should be
+stored as `BigDecimal` instead of `double`, since `double` works for the
+current prices but can produce rounding errors with other discounts. The menu
+(products, prices and bundle contents) could be loaded from a configuration
+file instead of the `Menu` class, so that adding a new bundle would require
+no code changes. Finally, a declined payment could return a result object
+instead of throwing an exception, so the console flow would not rely on
+exceptions for a normal business case.
+
+Overall, the lab showed that structural patterns make the application open
+for extension: a new add-on, bundle or payment method is added as a new class,
+while the existing domain classes, `Order`, `OrderService` and the receipt
+remain unchanged.
