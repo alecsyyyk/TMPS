@@ -1,76 +1,189 @@
 package coffeeshop.client;
 
+import coffeeshop.behavioral.command.AddItemCommand;
+import coffeeshop.behavioral.command.Command;
+import coffeeshop.behavioral.command.CommandHistory;
+import coffeeshop.behavioral.command.PayOrderCommand;
+import coffeeshop.behavioral.command.RemoveItemCommand;
+import coffeeshop.behavioral.observer.CustomerNotifier;
+import coffeeshop.behavioral.observer.KitchenDisplay;
+import coffeeshop.behavioral.observer.OrderObserver;
+import coffeeshop.behavioral.observer.StatusHistoryLog;
+import coffeeshop.behavioral.state.OrderTicket;
 import coffeeshop.creational.builder.CustomCoffeeBuilder;
 import coffeeshop.creational.factory.PaymentCreator;
 import coffeeshop.creational.factory.ProductCreator;
 import coffeeshop.domain.Coffee;
-import coffeeshop.domain.Order;
 import coffeeshop.domain.Product;
 import coffeeshop.payment.Payment;
-import coffeeshop.payment.PaymentDeclinedException;
 import coffeeshop.service.ConsoleReceipt;
 import coffeeshop.service.InMemoryOrderRepository;
 import coffeeshop.service.OrderRepository;
-import coffeeshop.service.OrderService;
 import coffeeshop.service.Receipt;
 import coffeeshop.structural.decorator.CupSize;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
-// Interactive console client. It works only with abstractions:
-// ProductCreator, Product, Coffee, PaymentCreator, Payment, OrderService.
+// Interactive console client.
+// Lab 4: the user works with one OrderTicket at a time.
+//  - every change of the order goes through a Command (so it can be undone),
+//  - the ticket's State decides which actions are allowed,
+//  - Observers (kitchen screen, customer SMS) are told about every change,
+//    and the customer SMS can be turned on/off while the app runs.
+// Products and payments still come from the Lab 2/3 factories, builder,
+// decorators, composite bundles and payment proxy.
 class ConsoleApp {
-    private static final String CUSTOM_COFFEE = "7";
-
     private final Scanner scanner;
     private final OrderRepository repository = InMemoryOrderRepository.getInstance();
     private final Receipt receipt = new ConsoleReceipt();
 
+    // Saves the scanner used to read what the user types.
     ConsoleApp(Scanner scanner) {
         this.scanner = scanner;
     }
 
+    // Main loop: one order after another, until the user says "n".
     void run() {
         do {
-            Order order = takeOrder();
-            if (order.isEmpty()) {
-                System.out.println("An order cannot be placed without products.");
-                continue;
-            }
-            checkout(order);
-        } while (askYesNo("Place another order? (y/n): "));
+            handleOneOrder();
+        } while (askYesNo("Start another order? (y/n): "));
 
-        System.out.println("Orders placed today: "
+        System.out.println("Orders completed today: "
                 + InMemoryOrderRepository.getInstance().getOrders().size());
     }
 
-    private Order takeOrder() {
-        Order order = new Order();
+    // Creates a ticket, subscribes the observers and shows the menu until the
+    // order is completed or cancelled.
+    private void handleOneOrder() {
+        OrderTicket ticket = new OrderTicket();
+        CommandHistory history = new CommandHistory();
 
-        System.out.println("=== Place an order ===");
-        printProducts(Menu.PRODUCTS);
-        System.out.println(CUSTOM_COFFEE + ". Custom coffee");
-        System.out.println("0. Finish order");
+        OrderObserver kitchen = new KitchenDisplay();
+        OrderObserver sms = new CustomerNotifier("Customer");
+        StatusHistoryLog log = new StatusHistoryLog();
+        ticket.subscribe(kitchen);
+        ticket.subscribe(sms);
+        ticket.subscribe(log);
 
-        while (true) {
-            System.out.print("Option: ");
-            String option = scanner.nextLine().trim();
-
-            if ("0".equals(option)) {
-                return order;
+        while (!ticket.getState().isFinal()) {
+            printMenu(ticket);
+            System.out.print("Action: ");
+            String action = scanner.nextLine().trim().toLowerCase();
+            // Every action can be rejected by the current state. Then we just
+            // show the message and let the user choose again.
+            try {
+                if (!doAction(action, ticket, history, sms)) {
+                    System.out.println("Unknown action.");
+                }
+            } catch (RuntimeException e) {
+                System.out.println("Not possible: " + e.getMessage());
             }
-            if (CUSTOM_COFFEE.equals(option)) {
-                order.addItem(buildCustomCoffee());
-            } else if (Menu.PRODUCTS.containsKey(option)) {
-                order.addItem(Menu.PRODUCTS.get(option).prepare());
-            } else {
-                System.out.println("Invalid option.");
-                continue;
-            }
-            System.out.printf("Product added. Current total: %.2f MDL. Choose 0 to finish.%n",
-                    order.getTotal());
         }
+
+        System.out.println("Status history: " + log.getEntries());
+    }
+
+    // Runs one menu action. Returns false if the letter is unknown.
+    private boolean doAction(String action, OrderTicket ticket, CommandHistory history, OrderObserver sms) {
+        switch (action) {
+            case "a":
+                runCommand(history, new AddItemCommand(ticket, chooseProduct()));
+                return true;
+            case "c":
+                runCommand(history, new AddItemCommand(ticket, buildCustomCoffee()));
+                return true;
+            case "d":
+                runCommand(history, new RemoveItemCommand(ticket, chooseItemFromOrder(ticket)));
+                return true;
+            case "p":
+                runCommand(history, new PayOrderCommand(ticket, choosePayment()));
+                return true;
+            case "u":
+                if (!history.undoLast()) {
+                    System.out.println("Nothing to undo.");
+                }
+                return true;
+            case "s":
+                ticket.startPreparing();
+                return true;
+            case "r":
+                ticket.markReady();
+                return true;
+            case "k":
+                ticket.pickUp();
+                // The order is finished: save it (Singleton) and print the receipt (Composite).
+                repository.save(ticket.getOrder());
+                receipt.print(ticket.getOrder());
+                return true;
+            case "x":
+                ticket.cancel();
+                return true;
+            case "n":
+                toggleSms(ticket, sms);
+                return true;
+            case "h":
+                System.out.println("Undo history: " + history.getDescriptions());
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    // Runs a command through the invoker (so it is saved for undo).
+    private void runCommand(CommandHistory history, Command command) {
+        history.run(command);
+    }
+
+    // Subscribes or unsubscribes the customer SMS observer at runtime.
+    private void toggleSms(OrderTicket ticket, OrderObserver sms) {
+        if (ticket.isSubscribed(sms)) {
+            ticket.unsubscribe(sms);
+            System.out.println("Customer SMS turned OFF.");
+        } else {
+            ticket.subscribe(sms);
+            System.out.println("Customer SMS turned ON.");
+        }
+    }
+
+    // Prints the current order and the list of actions.
+    private void printMenu(OrderTicket ticket) {
+        System.out.println();
+        System.out.printf("=== Order #%d [%s] - %d item(s), total %.2f MDL ===%n",
+                ticket.getId(), ticket.getState().getName(),
+                ticket.getOrder().getItems().size(), ticket.getOrder().getTotal());
+        System.out.println("a - add product        c - add custom coffee   d - remove product");
+        System.out.println("p - pay                u - undo last action     h - show undo history");
+        System.out.println("s - start preparing    r - mark ready           k - pick up");
+        System.out.println("x - cancel order       n - customer SMS on/off");
+    }
+
+    // Shows the product menu and returns the chosen product (Factory Method).
+    private Product chooseProduct() {
+        printProducts(Menu.PRODUCTS);
+        return chooseFrom(Menu.PRODUCTS).prepare();
+    }
+
+    // Shows the products already in the order and returns the chosen one.
+    private Product chooseItemFromOrder(OrderTicket ticket) {
+        List<Product> items = ticket.getOrder().getItems();
+        if (items.isEmpty()) {
+            throw new IllegalStateException("the order has no products.");
+        }
+        for (int i = 0; i < items.size(); i++) {
+            System.out.printf("%d. %s - %.2f MDL%n", i + 1, items.get(i).getName(), items.get(i).getPrice());
+        }
+        return chooseEnum(items.toArray(new Product[0]));
+    }
+
+    // Shows the payment methods and returns a Payment (really a PaymentProxy).
+    private Payment choosePayment() {
+        System.out.println("Choose a payment method:");
+        for (Map.Entry<String, PaymentCreator> entry : Menu.PAYMENTS.entrySet()) {
+            System.out.println(entry.getKey() + ". " + entry.getValue().getName());
+        }
+        return chooseFrom(Menu.PAYMENTS).getPayment();
     }
 
     // Builder + Decorator: every extra the user picks wraps the coffee once more.
@@ -111,28 +224,7 @@ class ConsoleApp {
         return coffee;
     }
 
-    // Factory Method + Proxy: the creator hands back a Payment, which is
-    // really a PaymentProxy; this client cannot tell the difference.
-    private void checkout(Order order) {
-        while (true) {
-            System.out.println("Choose a payment method:");
-            for (Map.Entry<String, PaymentCreator> entry : Menu.PAYMENTS.entrySet()) {
-                System.out.println(entry.getKey() + ". " + entry.getValue().getName());
-            }
-            Payment payment = chooseFrom(Menu.PAYMENTS).getPayment();
-            try {
-                new OrderService(payment, repository, receipt).placeOrder(order);
-                return;
-            } catch (PaymentDeclinedException e) {
-                System.out.println("Payment declined: " + e.getMessage());
-                if (!askYesNo("Try another payment method? (y/n): ")) {
-                    System.out.println("Order cancelled.");
-                    return;
-                }
-            }
-        }
-    }
-
+    // Prints a numbered list of products with their price.
     private void printProducts(Map<String, ? extends ProductCreator<?>> menu) {
         for (Map.Entry<String, ? extends ProductCreator<?>> entry : menu.entrySet()) {
             Product product = entry.getValue().createProduct();
@@ -140,6 +232,7 @@ class ConsoleApp {
         }
     }
 
+    // Asks until the user types a key that exists in the map.
     private <T> T chooseFrom(Map<String, T> options) {
         while (true) {
             System.out.print("Option: ");
@@ -151,6 +244,7 @@ class ConsoleApp {
         }
     }
 
+    // Asks until the user types a number between 1 and values.length.
     private <T> T chooseEnum(T[] values) {
         while (true) {
             System.out.print("Option: ");
@@ -166,6 +260,7 @@ class ConsoleApp {
         }
     }
 
+    // Asks a yes/no question until the answer is "y" or "n".
     private boolean askYesNo(String question) {
         while (true) {
             System.out.print(question);
