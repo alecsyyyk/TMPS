@@ -17,6 +17,12 @@ public class Order {
         items.add(product);
     }
 
+    // Lab 4: removes one product from the order (used by remove and undo).
+    // Returns true if the product was found and removed.
+    public boolean removeItem(Product product) {
+        return items.remove(product);
+    }
+
     public List<Product> getItems() {
         return Collections.unmodifiableList(items);
     }
